@@ -178,9 +178,13 @@ npm run test:watch
 Answer the following questions in your submission:
 
 1. What is the difference between the client and the server?
+A: The server is the program that waits for incoming TCP connections and responds to commands sent by clients. The client is the program that connects to the server, sends user input, and displays the server’s responses.
 2. Why does the server need to keep running after handling one request?
+A: The server needs to keep running so it can continue accepting more commands from the same client or new connections from other clients. If the server stopped after one request, the user would have to restart it every time a command was sent.
 3. What happens if two clients connect at the same time?
+A: Each client gets its own socket connection. The server can receive data from each connected client and send responses back over the correct socket. This allows multiple clients to interact with the server independently.
 4. How is this different from HTTP?
+A: This lab uses a simple custom TCP text protocol where the client sends commands such as ECHO or UPPER directly over a socket. HTTP is also built on top of TCP, but it has a standardized request and response format with methods, headers, status codes, and other rules. This lab’s protocol is much simpler than HTTP.
 
 ## Submission
 
@@ -201,3 +205,30 @@ npm test
 ```
 
 runs successfully.
+
+## Protocol Description
+
+This TCP command server accepts one text command per line from a connected client. Commands are case-insensitive, but command arguments are treated as normal text.
+
+Supported commands:
+
+| Command        | Description                                             | Example Input   | Response  |
+| -------------- | ------------------------------------------------------- | --------------- | ----------|
+| `ECHO text`    | Returns the text exactly as provided after the command. | `ECHO hello`    | `hello`   |
+| `UPPER text`   | Converts the argument to uppercase.                     | `UPPER hello`   | `HELLO`   |
+| `LOWER text`   | Converts the argument to lowercase.                     | `LOWER HELLO`   | `hello`   |
+| `REVERSE text` | Reverses the argument text.                             | `REVERSE hello` | `olleh`   |
+| `TIME`         | Returns the current server time.                        | `TIME`          | timestamp |
+| `QUIT`         | Sends a goodbye message and closes the connection.      | `QUIT`          | `Goodbye.`|
+
+If the client sends an empty command, the server responds with:
+
+```text
+ERROR empty command
+```
+
+If the client sends an unknown command, the server responds with:
+
+```text
+ERROR unknown command: COMMAND
+```
