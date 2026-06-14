@@ -269,10 +269,15 @@ npm run test:watch
 Answer the following questions in your submission:
 
 1. What is the difference between a TCP message and an HTTP request?
+A: A TCP message is just raw data sent over a TCP connection. The programmer has to decide what the message format means. An HTTP request is structured data sent over TCP using a standard format. It includes a method such as GET or POST, a path such as /health, headers such as Content-Type, and sometimes a body such as JSON data.
 2. What does the `Content-Type: application/json` header tell the server?
+A: The Content-Type: application/json header tells the server that the request body is formatted as JSON. This lets the server know that it should parse the body using JSON.parse instead of treating it as plain text or some other format.
 3. Why should a server return different HTTP status codes for different situations?
+A: Different status codes help the client understand what happened. A 200 status means the request worked. A 400 status means the client sent bad input. A 404 status means the route was not found. A 405 status means the route exists, but the HTTP method was not allowed. These codes make the API easier to test, debug, and use correctly.
 4. What happens if the client sends invalid JSON?
+A: If the client sends invalid JSON, the server catches the JSON parsing error and returns a 400 Bad Request response with a JSON error message. The server should not crash because of invalid client input.
 5. How is this lab different from Lab 1?
+A: Lab 1 used raw TCP sockets and a custom command format. In this lab, the server uses HTTP, which provides standard methods, paths, headers, status codes, and JSON request and response bodies. This lab is closer to how real web APIs are usually built.
 
 ## Graduate Students
 
