@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import request from "supertest";
 import { createApp } from "../src/server.js";
 
-describe("Lab 3 starter", () => {
+describe("Lab 3 REST API", () => {
   test("GET /health returns status ok", async () => {
     const app = createApp();
 
@@ -11,5 +11,95 @@ describe("Lab 3 starter", () => {
         .expect(200);
 
     expect(response.body).toEqual({ status: "ok" });
+  });
+
+  test("GET /items returns a list of items", async () => {
+    const app = createApp();
+
+    const response = await request(app)
+        .get("/items")
+        .expect(200);
+
+    expect(response.body).toEqual([
+      { id: 1, name: "keyboard", quantity: 10 },
+      { id: 2, name: "mouse", quantity: 5 }
+    ]);
+  });
+
+  test("POST /items creates a new item", async () => {
+    const app = createApp();
+
+    const response = await request(app)
+        .post("/items")
+        .send({ name: "monitor", quantity: 4 })
+        .expect(201);
+
+    expect(response.body).toEqual({
+      id: 3,
+      name: "monitor",
+      quantity: 4
+    });
+  });
+
+  test("GET /items/:id returns one item", async () => {
+    const app = createApp();
+
+    const response = await request(app)
+        .get("/items/1")
+        .expect(200);
+
+    expect(response.body).toEqual({
+      id: 1,
+      name: "keyboard",
+      quantity: 10
+    });
+  });
+
+  test("PUT /items/:id updates an item", async () => {
+    const app = createApp();
+
+    const response = await request(app)
+        .put("/items/1")
+        .send({ name: "mechanical keyboard", quantity: 12 })
+        .expect(200);
+
+    expect(response.body).toEqual({
+      id: 1,
+      name: "mechanical keyboard",
+      quantity: 12
+    });
+  });
+
+  test("DELETE /items/:id deletes an item", async () => {
+    const app = createApp();
+
+    await request(app)
+        .delete("/items/1")
+        .expect(204);
+
+    await request(app)
+        .get("/items/1")
+        .expect(404);
+  });
+
+  test("missing item returns 404", async () => {
+    const app = createApp();
+
+    const response = await request(app)
+        .get("/items/999")
+        .expect(404);
+
+    expect(response.body).toEqual({ error: "Item not found" });
+  });
+
+  test("invalid POST /items returns 400", async () => {
+    const app = createApp();
+
+    const response = await request(app)
+        .post("/items")
+        .send({ name: "", quantity: -1 })
+        .expect(400);
+
+    expect(response.body).toEqual({ error: "Invalid item data" });
   });
 });
