@@ -69,3 +69,25 @@ button {
 .items {
   padding-left: 20px;
 }
+
+.item-row {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) 90px auto auto;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.quantity-input {
+  width: 65px;
+}
+
+.danger-button {
+  background: #b42318;
+}
+
+@media (max-width: 600px) {
+  .item-row {
+    grid-template-columns: 1fr;
+  }
+}

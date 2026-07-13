@@ -16,7 +16,52 @@ function renderItems(items) {
 
   for (const item of items) {
     const li = document.createElement("li");
-    li.textContent = `${item.id}: ${item.name} (${item.quantity})`;
+    li.className = "item-row";
+
+    const itemText = document.createElement("span");
+    itemText.textContent = `${item.id}: ${item.name}`;
+
+    const quantityInput = document.createElement("input");
+    quantityInput.type = "number";
+    quantityInput.min = "0";
+    quantityInput.value = String(item.quantity);
+    quantityInput.className = "quantity-input";
+    quantityInput.setAttribute(
+      "aria-label",
+      `Quantity for ${item.name}`
+    );
+
+    const updateButton = document.createElement("button");
+    updateButton.type = "button";
+    updateButton.textContent = "Update quantity";
+
+    updateButton.addEventListener("click", async () => {
+      const quantity = Number(quantityInput.value);
+
+      if (!Number.isInteger(quantity) || quantity < 0) {
+        setStatus("Quantity must be a non-negative integer.");
+        return;
+      }
+
+      await updateItemQuantity(item.id, quantity);
+    });
+
+    const deleteButton = document.createElement("button");
+    deleteButton.type = "button";
+    deleteButton.textContent = "Delete";
+    deleteButton.className = "danger-button";
+
+    deleteButton.addEventListener("click", async () => {
+      await deleteItem(item.id);
+    });
+
+    li.append(
+      itemText,
+      quantityInput,
+      updateButton,
+      deleteButton
+    );
+
     itemList.appendChild(li);
   }
 }
@@ -59,6 +104,64 @@ async function addItem(name, quantity) {
 
     setStatus(`Added item: ${data.item.name}`);
     await loadItems();
+  } catch (error) {
+    setStatus(error.message);
+  }
+}
+
+async function updateItemQuantity(id, quantity) {
+  setStatus(`Updating item ${id}...`);
+
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/api/items/${id}`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ quantity })
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data.message ??
+        `PATCH /api/items/${id} failed with status ${response.status}`
+      );
+    }
+
+    await loadItems();
+    setStatus(`Updated ${data.item.name}.`);
+  } catch (error) {
+    setStatus(error.message);
+  }
+}
+
+async function deleteItem(id) {
+  setStatus(`Deleting item ${id}...`);
+
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/api/items/${id}`,
+      {
+        method: "DELETE"
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data.message ??
+        `DELETE /api/items/${id} failed with status ${response.status}`
+      );
+    }
+
+    await loadItems();
+    setStatus(`Deleted ${data.item.name}.`);
   } catch (error) {
     setStatus(error.message);
   }

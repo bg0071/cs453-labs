@@ -14,6 +14,63 @@ const pool = new Pool({
   password: process.env.PGPASSWORD ?? "postgres"
 });
 
+function parseItemId(value) {
+  const id = Number(value);
+
+  if (!Number.isInteger(id) || id <= 0) {
+    return null;
+  }
+
+  return id;
+}
+
+function validateItemBody(body, { partial = false } = {}) {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return {
+      error: "The request body must be a JSON object."
+    };
+  }
+
+  const hasName = Object.hasOwn(body, "name");
+  const hasQuantity = Object.hasOwn(body, "quantity");
+
+  if (partial && !hasName && !hasQuantity) {
+    return {
+      error: "Provide at least one field: name or quantity."
+    };
+  }
+
+  if (!partial && (!hasName || !hasQuantity)) {
+    return {
+      error: "Both name and quantity are required."
+    };
+  }
+
+  const item = {};
+
+  if (hasName) {
+    if (typeof body.name !== "string" || body.name.trim().length === 0) {
+      return {
+        error: "Name must be a non-empty string."
+      };
+    }
+
+    item.name = body.name.trim();
+  }
+
+  if (hasQuantity) {
+    if (!Number.isInteger(body.quantity) || body.quantity < 0) {
+      return {
+        error: "Quantity must be a non-negative integer."
+      };
+    }
+
+    item.quantity = body.quantity;
+  }
+
+  return { item };
+}
+
 export function createApp() {
   const app = express();
 
@@ -60,13 +117,12 @@ export function createApp() {
 
   // Starter route: create one item so the client can demonstrate a write.
   app.post("/api/items", async (req, res) => {
-    const name = req.body?.name?.trim();
-    const quantity = Number(req.body?.quantity);
+    const { item, error } = validateItemBody(req.body);
 
-    if (!name || !Number.isInteger(quantity) || quantity < 0) {
+    if (error) {
       return res.status(400).json({
         error: "Bad Request",
-        message: "A name and non-negative integer quantity are required."
+        message: error
       });
     }
 
@@ -77,12 +133,15 @@ export function createApp() {
           VALUES ($1, $2)
           RETURNING id, name, quantity
         `,
-        [name, quantity]
+        [item.name, item.quantity]
       );
 
-      res.status(201).json({ item: result.rows[0] });
+      res.status(201).json({
+        item: result.rows[0]
+      });
     } catch (error) {
       console.error("Failed to add item:", error);
+
       res.status(500).json({
         error: "Internal Server Error",
         message: "Failed to add item."
@@ -91,27 +150,223 @@ export function createApp() {
   });
 
   // TODO: Return one item by ID.
-  app.get("/api/items/:id", (req, res) => {
-    res.status(501).json({ error: "Not implemented yet" });
+  app.get("/api/items/:id", async (req, res) => {
+    const id = parseItemId(req.params.id);
+
+    if (id === null) {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: "Item ID must be a positive integer."
+      });
+    }
+
+    try {
+      const result = await pool.query(
+        `
+          SELECT id, name, quantity
+          FROM items
+          WHERE id = $1
+        `,
+        [id]
+      );
+
+      if (result.rowCount === 0) {
+        return res.status(404).json({
+          error: "Not Found",
+          message: `Item ${id} does not exist.`
+        });
+      }
+
+      res.json({
+        item: result.rows[0]
+      });
+    } catch (error) {
+      console.error("Failed to load item:", error);
+
+      res.status(500).json({
+        error: "Internal Server Error",
+        message: "Failed to load item."
+      });
+    }
   });
 
   // TODO: Replace one item by ID.
-  app.put("/api/items/:id", (req, res) => {
-    res.status(501).json({ error: "Not implemented yet" });
+  app.put("/api/items/:id", async (req, res) => {
+    const id = parseItemId(req.params.id);
+
+    if (id === null) {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: "Item ID must be a positive integer."
+      });
+    }
+
+    const { item, error } = validateItemBody(req.body);
+
+    if (error) {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: error
+      });
+    }
+
+    try {
+      const result = await pool.query(
+        `
+          UPDATE items
+          SET name = $1,
+              quantity = $2
+          WHERE id = $3
+          RETURNING id, name, quantity
+        `,
+        [item.name, item.quantity, id]
+      );
+
+      if (result.rowCount === 0) {
+        return res.status(404).json({
+          error: "Not Found",
+          message: `Item ${id} does not exist.`
+        });
+      }
+
+      res.json({
+        item: result.rows[0]
+      });
+    } catch (error) {
+      console.error("Failed to replace item:", error);
+
+      res.status(500).json({
+        error: "Internal Server Error",
+        message: "Failed to replace item."
+      });
+    }
   });
 
   // TODO: Partially update one item by ID.
-  app.patch("/api/items/:id", (req, res) => {
-    res.status(501).json({ error: "Not implemented yet" });
+  app.patch("/api/items/:id", async (req, res) => {
+    const id = parseItemId(req.params.id);
+
+    if (id === null) {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: "Item ID must be a positive integer."
+      });
+    }
+
+    const { item, error } = validateItemBody(req.body, {
+      partial: true
+    });
+
+    if (error) {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: error
+      });
+    }
+
+    const name = Object.hasOwn(item, "name")
+      ? item.name
+      : null;
+
+    const quantity = Object.hasOwn(item, "quantity")
+      ? item.quantity
+      : null;
+
+    try {
+      const result = await pool.query(
+        `
+          UPDATE items
+          SET name = COALESCE($1, name),
+              quantity = COALESCE($2, quantity)
+          WHERE id = $3
+          RETURNING id, name, quantity
+        `,
+        [name, quantity, id]
+      );
+
+      if (result.rowCount === 0) {
+        return res.status(404).json({
+          error: "Not Found",
+          message: `Item ${id} does not exist.`
+        });
+      }
+
+      res.json({
+        item: result.rows[0]
+      });
+    } catch (error) {
+      console.error("Failed to update item:", error);
+
+      res.status(500).json({
+        error: "Internal Server Error",
+        message: "Failed to update item."
+      });
+    }
   });
 
   // TODO: Delete one item by ID.
-  app.delete("/api/items/:id", (req, res) => {
-    res.status(501).json({ error: "Not implemented yet" });
+  app.delete("/api/items/:id", async (req, res) => {
+    const id = parseItemId(req.params.id);
+
+    if (id === null) {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: "Item ID must be a positive integer."
+      });
+    }
+
+    try {
+      const result = await pool.query(
+        `
+          DELETE FROM items
+          WHERE id = $1
+          RETURNING id, name, quantity
+        `,
+        [id]
+      );
+
+      if (result.rowCount === 0) {
+        return res.status(404).json({
+          error: "Not Found",
+          message: `Item ${id} does not exist.`
+        });
+      }
+
+      res.json({
+        item: result.rows[0],
+        message: "Item deleted."
+      });
+    } catch (error) {
+      console.error("Failed to delete item:", error);
+
+      res.status(500).json({
+        error: "Internal Server Error",
+        message: "Failed to delete item."
+      });
+    }
+  });
+
+  app.use((error, req, res, next) => {
+    if (error instanceof SyntaxError && error.status === 400) {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: "Request body contains invalid JSON."
+      });
+    }
+
+    console.error("Unhandled server error:", error);
+
+    res.status(500).json({
+      error: "Internal Server Error",
+      message: "An unexpected error occurred."
+    });
   });
 
   app.use((req, res) => {
-    res.status(404).json({ error: "Not found" });
+    res.status(404).json({
+      error: "Not Found",
+      message: "Route does not exist."
+    });
   });
 
   return app;
