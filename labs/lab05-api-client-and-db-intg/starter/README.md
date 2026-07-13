@@ -71,4 +71,4 @@ The browser client tests the complete application workflow. It verifies that the
 
 ### 5. If you added an extension, what did you add and why?
 
-I did not add an optional extension for I am an undergrad. I did add browser controls for updating item quantities and deleting items (It was awesome when it worked correctly). 
+I did not add an optional extension for I am an undergrad. I did add browser controls for updating item quantities and deleting items (awesome when it worked correctly). 
